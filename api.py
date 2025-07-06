@@ -23,15 +23,18 @@ user_args = reqparse.RequestParser()
 user_args.add_argument("name", type=str, help="Name of the user", required=True)
 user_args.add_argument("email", type=str, help="Email of the user", required=True)
 
+userFields = {"id": fields.Integer, "name": fields.String, "email": fields.String}
 
-class UserResource(Resource):
-    def get(self, user_id):
-        user = UserModel.query.get(user_id)
-        if not user:
+
+class Users(Resource):
+    @marshal_with(userFields)
+    def get(self):
+        users = UserModel.query.all()
+        if not users:
             abort(404, message="User not found")
-        return {"id": user.id, "name": user.name, "email": user.email}
+        return users
 
-    @marshal_with({"id": fields.Integer, "name": fields.String, "email": fields.String})
+    @marshal_with(userFields)
     def post(self):
         args = user_args.parse_args()
         new_user = UserModel(name=args["name"], email=args["email"])
@@ -40,7 +43,36 @@ class UserResource(Resource):
         return new_user, 201
 
 
-api.add_resource(UserResource, "/api/users/<int:user_id>", "/api/users")
+class User(Resource):
+    @marshal_with(userFields)
+    def get(self, user_id):
+        user = UserModel.query.get(user_id)
+        if not user:
+            abort(404, message="User not found")
+        return user
+
+    @marshal_with(userFields)
+    def put(self, user_id):
+        args = user_args.parse_args()
+        user = UserModel.query.get(user_id)
+        if not user:
+            abort(404, message="User not found")
+        user.name = args["name"]
+        user.email = args["email"]
+        db.session.commit()
+        return user
+
+    def delete(self, user_id):
+        user = UserModel.query.get(user_id)
+        if not user:
+            abort(404, message="User not found")
+        db.session.delete(user)
+        db.session.commit()
+        return {"message": "User deleted"}, 204
+
+
+api.add_resource(Users, "/api/users/", "/api/users/<int:user_id>", "/api/users")
+api.add_resource(User, "/api/user/<int:user_id>")
 
 
 @app.route("/api/home", methods=["GET"])
